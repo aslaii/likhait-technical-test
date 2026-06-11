@@ -16,12 +16,29 @@ RSpec.describe "Api::Expenses", type: :request do
       expect(json.length).to eq(2)
     end
 
-    it "returns expenses in descending order by created_at" do
+    it "returns expenses in descending order by date" do
+      expense_a = Expense.create!(description: "Expense A", amount: 100.00, category: food_category, date: 2.days.ago.to_date, created_at: 1.hour.ago)
+      expense_b = Expense.create!(description: "Expense B", amount: 50.00, category: transport_category, date: 1.day.ago.to_date, created_at: 2.hours.ago)
+      expense_c = Expense.create!(description: "Expense C", amount: 75.00, category: food_category, date: Date.current, created_at: 3.hours.ago)
+
       get "/api/expenses"
 
       json = JSON.parse(response.body)
-      expect(json.first["id"]).to eq(expense2.id)
-      expect(json.last["id"]).to eq(expense1.id)
+      expect(json[0]["id"]).to eq(expense_c.id)
+      expect(json[1]["id"]).to eq(expense_b.id)
+      expect(json[2]["id"]).to eq(expense_a.id)
+    end
+
+    it "returns expenses with same date ordered by id descending (tiebreaker)" do
+      expense_x = Expense.create!(description: "Expense X", amount: 100.00, category: food_category, date: Date.current)
+      expense_y = Expense.create!(description: "Expense Y", amount: 50.00, category: transport_category, date: Date.current)
+
+      get "/api/expenses"
+
+      json = JSON.parse(response.body)
+      same_date_expenses = json.select { |e| e["date"] == Date.current.to_s }
+      expect(same_date_expenses.first["id"]).to eq(expense_y.id)
+      expect(same_date_expenses.last["id"]).to eq(expense_x.id)
     end
   end
 
@@ -51,39 +68,58 @@ RSpec.describe "Api::Expenses", type: :request do
     end
 
     context "with invalid parameters" do
-      it "with negative amounts" do
-        invalid_params = {
-          expense: {
-            description: "Invalid expense",
-            amount: -100.00,
-            category_id: food_category.id,
-            date: Date.today
-          }
-        }
+       it "with negative amounts" do
+         invalid_params = {
+           expense: {
+             description: "Invalid expense",
+             amount: -100.00,
+             category_id: food_category.id,
+             date: Date.today
+           }
+         }
 
-        expect {
-          post "/api/expenses", params: invalid_params, as: :json
-        }.to change(Expense, :count).by(1)
+         expect {
+           post "/api/expenses", params: invalid_params, as: :json
+         }.to change(Expense, :count).by(1)
 
-        expect(response).to have_http_status(:created)
-      end
+         expect(response).to have_http_status(:created)
+       end
 
-      it "with empty descriptions" do
-        invalid_params = {
-          expense: {
-            description: "",
-            amount: 100.00,
-            category_id: food_category.id,
-            date: Date.today
-          }
-        }
+       it "with empty descriptions" do
+         invalid_params = {
+           expense: {
+             description: "",
+             amount: 100.00,
+             category_id: food_category.id,
+             date: Date.today
+           }
+         }
 
-        expect {
-          post "/api/expenses", params: invalid_params, as: :json
-        }.to change(Expense, :count).by(1)
+         expect {
+           post "/api/expenses", params: invalid_params, as: :json
+         }.to change(Expense, :count).by(1)
 
-        expect(response).to have_http_status(:created)
-      end
-    end
+         expect(response).to have_http_status(:created)
+       end
+
+       it "with future date beyond tolerance" do
+         invalid_params = {
+           expense: {
+             description: "Future expense",
+             amount: 100.00,
+             category_id: food_category.id,
+             date: Date.current + 2.days
+           }
+         }
+
+         expect {
+           post "/api/expenses", params: invalid_params, as: :json
+         }.not_to change(Expense, :count)
+
+         expect(response).to have_http_status(:unprocessable_entity)
+         json = JSON.parse(response.body)
+         expect(json["errors"]["date"]).to be_present
+       end
+     end
   end
 end
