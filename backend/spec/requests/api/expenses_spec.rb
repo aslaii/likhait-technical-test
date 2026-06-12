@@ -16,12 +16,29 @@ RSpec.describe "Api::Expenses", type: :request do
       expect(json.length).to eq(2)
     end
 
-    it "returns expenses in descending order by created_at" do
+    it "returns expenses in descending order by date" do
+      expense_a = Expense.create!(description: "Expense A", amount: 100.00, category: food_category, date: 2.days.ago.to_date, created_at: 1.hour.ago)
+      expense_b = Expense.create!(description: "Expense B", amount: 50.00, category: transport_category, date: 1.day.ago.to_date, created_at: 2.hours.ago)
+      expense_c = Expense.create!(description: "Expense C", amount: 75.00, category: food_category, date: Date.current, created_at: 3.hours.ago)
+
       get "/api/expenses"
 
       json = JSON.parse(response.body)
-      expect(json.first["id"]).to eq(expense2.id)
-      expect(json.last["id"]).to eq(expense1.id)
+      ordered_ids = json.map { |expense| expense["id"] }
+      selected_ids = ordered_ids & [ expense_c.id, expense_b.id, expense_a.id ]
+      expect(selected_ids).to eq([ expense_c.id, expense_b.id, expense_a.id ])
+    end
+
+    it "returns expenses with same date ordered by id descending (tiebreaker)" do
+      expense_x = Expense.create!(description: "Expense X", amount: 100.00, category: food_category, date: Date.current)
+      expense_y = Expense.create!(description: "Expense Y", amount: 50.00, category: transport_category, date: Date.current)
+
+      get "/api/expenses"
+
+      json = JSON.parse(response.body)
+      ordered_ids = json.map { |expense| expense["id"] }
+      selected_ids = ordered_ids & [ expense_y.id, expense_x.id ]
+      expect(selected_ids).to eq([ expense_y.id, expense_x.id ])
     end
   end
 
@@ -46,7 +63,7 @@ RSpec.describe "Api::Expenses", type: :request do
         expect(response).to have_http_status(:created)
         json = JSON.parse(response.body)
         expect(json["description"]).to eq("Team Lunch")
-        expect(json["amount"]).to eq("150.5")
+        expect(json["amount"]).to eq(150.5)
       end
     end
 
