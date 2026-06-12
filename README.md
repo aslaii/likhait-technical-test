@@ -94,7 +94,7 @@ Expenses are displayed in a monthly calendar grid, making it easy to see spendin
 
 ### Category Organization
 
-All expenses are organized into 10 predefined categories (Food, Transport, Housing, Entertainment, Healthcare, Education, Shopping, Work, Utilities, Other), each with visual emoji indicators.
+Expenses are organized into categories. The system ships with 10 default categories (Food, Transportation, Shopping, Entertainment, Bills, Healthcare, Education, Travel, Personal, Other) and users can create custom categories through the UI.
 
 ### Real-Time Updates
 
@@ -130,7 +130,7 @@ Clean separation between frontend and backend enables scalability and maintainab
 
 ```bash
 # Clone and navigate to project
-cd expense_system_rails
+cd likhait-technical-test
 
 # Start all services
 docker compose up
