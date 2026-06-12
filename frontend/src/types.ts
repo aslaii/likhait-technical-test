@@ -12,6 +12,11 @@ export interface Expense {
   updated_at: string;
 }
 
+export interface Category {
+  readonly id: number;
+  readonly name: string;
+}
+
 export interface ExpenseFormData {
   amount: string;
   description: string;

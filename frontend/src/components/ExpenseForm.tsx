@@ -2,9 +2,10 @@
  * Form component for adding/editing expenses
  */
 
-import React from "react";
-import { ExpenseFormData } from "../types";
-import { EXPENSE_CATEGORIES } from "../constants/categories";
+import React, { useEffect, useState } from "react";
+import { COLORS } from "../constants/colors";
+import { fetchCategories } from "../services/api";
+import type { Category, ExpenseFormData } from "../types";
 import { TextField, SelectBox, Button } from "../vibes";
 import { useExpenseForm } from "../hooks/useExpenseForm";
 
@@ -26,6 +27,44 @@ export function ExpenseForm({
       initialData,
       onSubmit,
     });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [categoryLoadError, setCategoryLoadError] = useState<string>();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      setIsLoadingCategories(true);
+
+      try {
+        const fetchedCategories = await fetchCategories();
+
+        if (isMounted) {
+          setCategories(fetchedCategories);
+          setCategoryLoadError(undefined);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCategoryLoadError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load categories",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingCategories(false);
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const formStyle: React.CSSProperties = {
     display: "flex",
@@ -39,9 +78,15 @@ export function ExpenseForm({
     marginTop: "0.5rem",
   };
 
-  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
-    value: category,
-    label: category,
+  const categoryStatusStyle: React.CSSProperties = {
+    fontSize: "0.875rem",
+    color: COLORS.text.secondary,
+    margin: "-0.5rem 0 0",
+  };
+
+  const categoryOptions = categories.map((category) => ({
+    value: category.name,
+    label: category.name,
   }));
 
   return (
@@ -74,10 +119,16 @@ export function ExpenseForm({
         options={categoryOptions}
         value={formData.category}
         onChange={(e) => handleChange("category", e.target.value)}
-        error={errors.category}
+        error={errors.category || categoryLoadError}
         fullWidth
         required
+        disabled={isLoadingCategories || Boolean(categoryLoadError)}
       />
+      {isLoadingCategories && (
+        <p role="status" style={categoryStatusStyle}>
+          Loading categories...
+        </p>
+      )}
 
       <TextField
         label="Date"

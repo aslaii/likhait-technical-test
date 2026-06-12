@@ -2,9 +2,78 @@
  * API service for communicating with the backend
  */
 
-import { Expense, ExpenseFormData } from "../types";
+import type { Category, Expense, ExpenseFormData } from "../types";
 
 const API_BASE_URL = "http://localhost:3000/api";
+
+interface ErrorResponse {
+  readonly errors: readonly string[];
+}
+
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "errors" in value &&
+    Array.isArray(value.errors) &&
+    value.errors.every((error) => typeof error === "string")
+  );
+}
+
+function isCategory(value: unknown): value is Category {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    "name" in value &&
+    typeof value.id === "number" &&
+    Number.isFinite(value.id) &&
+    typeof value.name === "string"
+  );
+}
+
+function isCategoryList(value: unknown): value is Category[] {
+  return Array.isArray(value) && value.every(isCategory);
+}
+
+async function parseJson(response: Response, fallbackMessage: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(fallbackMessage);
+    }
+
+    throw error;
+  }
+}
+
+async function getErrorMessage(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  const responseText = await response.text();
+
+  if (!responseText) {
+    return fallbackMessage;
+  }
+
+  try {
+    const payload: unknown = JSON.parse(responseText);
+    if (!isErrorResponse(payload)) {
+      return fallbackMessage;
+    }
+
+    const message = payload.errors.join(", ").trim();
+    return message || fallbackMessage;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return fallbackMessage;
+    }
+
+    throw error;
+  }
+}
 
 /**
  * Fetch all expenses
@@ -36,14 +105,39 @@ export async function getExpenses(
 /**
  * Fetch all categories
  */
-export async function fetchCategories(): Promise<
-  Array<{ id: number; name: string }>
-> {
+export async function fetchCategories(): Promise<Category[]> {
   const response = await fetch(`${API_BASE_URL}/categories`);
   if (!response.ok) {
     throw new Error("Failed to fetch categories");
   }
-  return response.json();
+
+  const payload = await parseJson(response, "Failed to fetch categories");
+  if (!isCategoryList(payload)) {
+    throw new Error("Failed to fetch categories");
+  }
+
+  return payload;
+}
+
+export async function createCategory(name: string): Promise<Category> {
+  const response = await fetch(`${API_BASE_URL}/categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ category: { name } }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, "Failed to create category"));
+  }
+
+  const payload = await parseJson(response, "Failed to create category");
+  if (!isCategory(payload)) {
+    throw new Error("Failed to create category");
+  }
+
+  return payload;
 }
 
 /**
