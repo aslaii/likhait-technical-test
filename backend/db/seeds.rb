@@ -1,10 +1,5 @@
-# Clear existing data
-puts "Clearing existing data..."
-Expense.destroy_all
-Category.destroy_all
-
 # Create categories
-puts "Creating categories..."
+puts "Ensuring categories..."
 categories = [
   'Food',
   'Transportation',
@@ -19,10 +14,10 @@ categories = [
 ]
 
 created_categories = categories.map do |cat_name|
-  Category.create!(name: cat_name)
+  Category.find_or_create_by!(name: cat_name)
 end
 
-puts "Created #{created_categories.count} categories"
+puts "Ensured #{created_categories.count} categories"
 
 # Generate expenses from January 2024 to February 18, 2026
 puts "Creating expenses from January 2024 to February 18, 2026..."
@@ -117,50 +112,55 @@ start_date = Date.new(2024, 1, 1)
 end_date = Date.new(2026, 2, 18)
 
 expense_count = 0
-current_date = start_date
 
-while current_date <= end_date
-  # Generate 3-8 expenses per day (random for variety)
-  daily_expense_count = rand(3..8)
+if Expense.exists?
+  puts "Expenses already exist; skipping expense generation."
+else
+  current_date = start_date
 
-  daily_expense_count.times do
-    # Pick a random category
-    category = created_categories.sample
+  while current_date <= end_date
+    # Generate 3-8 expenses per day (random for variety)
+    daily_expense_count = rand(3..8)
 
-    # Get templates for this category
-    templates = expense_templates[category.name]
+    daily_expense_count.times do
+      # Pick a random category
+      category = created_categories.sample
 
-    if templates
-      # Pick a random template
-      template = templates.sample
+      # Get templates for this category
+      templates = expense_templates[category.name]
 
-      # Generate random amount within the range
-      amount = rand(template[:amount_range]).round(2)
+      if templates
+        # Pick a random template
+        template = templates.sample
 
-      # Add some decimal variation
-      amount += rand(0..99) / 100.0
+        # Generate random amount within the range
+        amount = rand(template[:amount_range]).round(2)
 
-      # Create the expense with created_at set to the date
-      Expense.create!(
-        description: template[:description],
-        amount: amount,
-        category: category,
-        date: current_date,
-        created_at: current_date,
-        updated_at: current_date
-      )
+        # Add some decimal variation
+        amount += rand(0..99) / 100.0
 
-      expense_count += 1
+        # Create the expense with created_at set to the date
+        Expense.create!(
+          description: template[:description],
+          amount: amount,
+          category: category,
+          date: current_date,
+          created_at: current_date,
+          updated_at: current_date
+        )
 
-      # Print progress every 100 expenses
-      if expense_count % 100 == 0
-        puts "Created #{expense_count} expenses..."
+        expense_count += 1
+
+        # Print progress every 100 expenses
+        if expense_count % 100 == 0
+          puts "Created #{expense_count} expenses..."
+        end
       end
     end
-  end
 
-  # Move to next day
-  current_date += 1.day
+    # Move to next day
+    current_date += 1.day
+  end
 end
 
 puts "Seed data created successfully!"
